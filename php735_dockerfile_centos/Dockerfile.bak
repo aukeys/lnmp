@@ -1,0 +1,67 @@
+#FROM centos:7.6
+FROM centos:latest
+MAINTAINER rui.chen@163.com
+
+#RUN rpm -ivh http://mirrors.aliyun.com/repo/epel-7.repo
+#RUN rpm -e epel-release
+RUN rpm -ivh http://mirrors.aliyun.com/epel/epel-release-latest-7.noarch.rpm
+RUN yum update -y
+RUN useradd -M -s /sbin/nologin www
+ADD nginx-1.9.9.tar.gz /data/server
+RUN yum -y install pcre.x86_64 pcre2.x86_64 pcre-devel.x86_64 pcre-devel.x86_64
+RUN yum -y install openssl-libs.x86_64 openssl-devel.x86_64
+#RUN yum -y install gcc 
+RUN yum -y install gcc-c++ autoconf automake libxml2 libxml2-dev libxslt-devel gd-devel GeoIP GeoIP-devel GeoIP-data
+WORKDIR /data/server/nginx-1.9.9
+#RUN ./configure --user=www --group=www --prefix=/data/server/nginx --with-http_stub_status_module --with-http_ssl_module --with-http_flv_module --with-http_gzip_static_module --with-http_realip_module --with-http_geoip_module 
+RUN ./configure --user=www --group=www --prefix=/data/server/nginx --with-http_stub_status_module --with-http_ssl_module --with-http_flv_module --with-http_gzip_static_module --with-http_realip_module --with-http_geoip_module --with-file-aio --with-ipv6  --with-http_xslt_module --with-http_image_filter_module --with-http_sub_module  --with-http_dav_module --with-http_mp4_module --with-http_gunzip_module  --with-http_auth_request_module  --with-http_random_index_module --with-http_secure_link_module --with-http_degradation_module 
+
+RUN yum -y install gcc automake autoconf libtool make 
+RUN make
+RUN make install
+
+
+ADD php-7.3.6.tar.gz /data/server
+RUN yum install -y libjpeg.x86_64 libpng.x86_64 freetype.x86_64 libjpeg-devel.x86_64 libpng-devel.x86_64 freetype-devel.x86_64 
+RUN yum -y install libjpeg-turbo-devel.x86_64 libjpeg-turbo.x86_64 libpng-devel libmcrypt-devel.x86_64 libmcrypt.x86_64 curl-devel gmp-devel postgresql-devel 
+RUN yum -y install bzip2 bzip2-devel readline-devel 
+#libzip-devel
+RUN yum -y install cmake
+ADD libzip-1.5.2.tar.gz /data/server
+WORKDIR /data/server/libzip-1.5.2
+RUN mkdir build
+WORKDIR /data/server/libzip-1.5.2/build
+RUN cmake ..
+RUN make && make install
+
+WORKDIR /data/server/php-7.3.6
+RUN ./configure  --prefix=/data/server/php --with-config-file-path=/data/server/php/etc --enable-mysqlnd \
+--with-mysqli=mysqlnd --with-pdo-mysql=mysqlnd \
+--with-config-file-scan-dir=/data/server/php/etc/extra --with-iconv-dir \
+--with-zlib --enable-xml --enable-bcmath --enable-shmop --enable-sysvsem \
+--enable-inline-optimization --with-curl --enable-mbregex --enable-ftp \
+--enable-fpm --enable-json --enable-mbstring --with-mcrypt --with-gd \
+--with-freetype-dir --with-jpeg-dir --with-png-dir --enable-exif \
+--enable-gd-native-ttf --with-openssl --with-mhash --with-libxml-dir \
+--enable-sockets --enable-zip --without-pear --enable-opcache --enable-shared \
+--enable-fast-install --with-xpm-dir --with-zlib-dir --disable-rpath \
+--enable-pcntl --with-xmlrpc --enable-soap --with-bz2 --with-gettext --with-xsl \
+--with-sqlite3 --with-pdo-sqlite --with-pdo-pgsql --with-pgsql \
+--with-fpm-user=www --with-fpm-group=www --with-pcre-regex --with-zlib \
+--with-zlib-dir --enable-calendar --with-cdb --enable-dom --with-pcre-dir \
+--enable-fileinfo --enable-filter --with-readline --enable-session \
+--enable-shmop --enable-simplexml --enable-sockets --enable-sysvmsg \
+--enable-sysvsem --enable-sysvshm --enable-wddx --with-libxml-dir --with-xsl \
+--enable-zip --with-pear --enable-opcache --with-freetype-dir \
+--enable-gd-native-ttf --enable-gd-jis-conv --with-gettext --with-gmp \
+--with-mhash --enable-json --enable-mbstring --enable-mbregex \
+--enable-mbregex-backtrack --with-libmbfl --with-onig --enable-pdo
+RUN make
+RUN make install
+RUN mkdir -p /data/logs/nginx/access 
+RUN chown -R www.www /data/logs/nginx/access 
+
+ADD start.sh /start.sh
+EXPOSE 8080 443 9000
+#ENTRYPOINT ["/start.sh"]
+ENTRYPOINT systemctl start php.service && systemctl start nginx.service && tail -f /data/logs/nginx/access/default_access.log

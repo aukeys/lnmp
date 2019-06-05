@@ -1,0 +1,62 @@
+#FROM centos:7.6
+FROM centos:latest
+MAINTAINER rui.chen@163.com
+
+#RUN rpm -ivh http://mirrors.aliyun.com/repo/epel-7.repo
+#RUN rpm -e epel-release
+#RUN rpm -ivh http://mirrors.aliyun.com/epel/epel-release-latest-7.noarch.rpm
+#RUN yum update -y
+RUN useradd -M -s /sbin/nologin www
+ADD nginx-1.9.9.tar.gz /data/server
+RUN yum -y install pcre.x86_64 pcre2.x86_64 pcre-devel.x86_64 pcre-devel.x86_64
+RUN yum -y install openssl-libs.x86_64 openssl-devel.x86_64
+RUN yum -y install gcc 
+#RUN yum -y install gcc-c++ autoconf automake libxml2 libxml2-dev libxslt-devel gd-devel GeoIP GeoIP-devel GeoIP-data
+WORKDIR /data/server/nginx-1.9.9
+RUN ./configure --user=www --group=www --prefix=/data/server/nginx --with-http_stub_status_module --with-http_ssl_module --with-http_flv_module --with-http_gzip_static_module --with-http_realip_module  #--with-http_geoip_module 
+#RUN ./configure --user=www --group=www --prefix=/data/server/nginx --with-http_stub_status_module --with-http_ssl_module --with-http_flv_module --with-http_gzip_static_module --with-http_realip_module --with-http_geoip_module --with-file-aio --with-ipv6  --with-http_xslt_module --with-http_image_filter_module --with-http_sub_module  --with-http_dav_module --with-http_mp4_module --with-http_gunzip_module  --with-http_auth_request_module  --with-http_random_index_module --with-http_secure_link_module --with-http_degradation_module 
+
+#RUN yum -y install automake autoconf libtool make 
+RUN yum -y install make 
+RUN make
+RUN make install
+
+
+RUN mkdir -p /data/logs/nginx/access 
+RUN chown -R www.www /data/logs/nginx/access 
+
+WORKDIR /data/server
+RUN rm -rf nginx-1.9.9
+#RUN yum remove make gcc openssl-libs.x86_64
+#RUN rpm -e kernel-headers
+#RUN rpm -e cpp
+RUN rpm -e make
+#rpm -e --nodeps
+#释放网页缓存
+#RUN sync; echo 1 > /proc/sys/vm/drop_caches
+#RUN echo 1 > /proc/sys/vm/drop_caches
+#释放目录项和索引
+#RUN sync; echo 2 > /proc/sys/vm/drop_caches 
+#RUN echo 2 > /proc/sys/vm/drop_caches 
+#释放网页缓存，目录项和索引
+#RUN sync; echo 3 > /proc/sys/vm/drop_caches
+#RUN echo 3 > /proc/sys/vm/drop_caches
+
+RUN yum makecache
+#清理/var/cache/yum的headers
+RUN yum clean headers
+#清理/var/cache/yum下的软件包
+RUN yum clean packages
+RUN yum clean metadata
+RUN yum clean headers
+RUN yum clean dbcache
+RUN yum clean plugins expire-cache rpmdb all
+
+ADD nginx.conf /data/server/nginx/conf/nginx.conf
+ADD www.conf /data/server/nginx/conf/webconfig/www.conf
+EXPOSE 80 443
+#ENTRYPOINT ["/start.sh"]
+
+ENTRYPOINT /data/server/nginx/sbin/nginx && tail -f /data/logs/nginx/access/default_access.log
+#ENTRYPOINT ["/bin/bash","/data/server/nginx/sbin/nginx","-c","/data/server/nginx/conf/nginx.conf"]
+#ENTRYPOINT /data/server/nginx/sbin/nginx
